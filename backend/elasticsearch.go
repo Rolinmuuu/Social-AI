@@ -10,19 +10,18 @@ import (
 )
 
 var (
-	ESBackend *ElasticsearchBackend
+	ESBackend ElasticsearchBackendInterface
 )
 
 type ElasticsearchBackend struct {
 	client *elastic.Client
 }
-
-func InitElasticsearchBackend() {
+func InitElasticsearchBackend() (ElasticsearchBackendInterface, error) {
    client, err := elastic.NewClient(
        elastic.SetURL(constants.ES_URL),
        elastic.SetBasicAuth(constants.ES_USERNAME, constants.ES_PASSWORD))
    if err != nil {
-       panic(err)
+       return nil, err
    }
 
    exists, err := client.IndexExists(constants.POST_INDEX).Do(context.Background())
@@ -38,7 +37,12 @@ func InitElasticsearchBackend() {
                    "user":     { "type": "keyword" },
                    "message":  { "type": "text" },
                    "url":      { "type": "keyword", "index": false },
-                   "type":     { "type": "keyword", "index": false }
+                   "type":     { "type": "keyword", "index": false },
+                   "deleted":  { "type": "boolean" },
+                   "deleted_at": { "type": "long" },
+                   "cleanup_status": { "type": "keyword" },
+                   "retry_count": { "type": "integer" },
+                   "last_error": { "type": "text" },
                }
            }
        }`
@@ -61,6 +65,7 @@ func InitElasticsearchBackend() {
                                        "password": {"type": "keyword"},
                                        "age":      {"type": "long", "index": false},
                                        "gender":   {"type": "keyword", "index": false}
+
                                }
                        }
                }`
@@ -72,6 +77,7 @@ func InitElasticsearchBackend() {
    fmt.Println("Indexes are created.")
 
    ESBackend = &ElasticsearchBackend{client: client}
+   return ESBackend, nil
 }
 
 func (backend *ElasticsearchBackend) ReadFromES(query elastic.Query, index string) (*elastic.SearchResult, error) {
@@ -95,6 +101,13 @@ func (backend *ElasticsearchBackend) SaveToES(i interface{}, index string, id st
     return err
 }
 
-// func (backend *ElasticsearchBackend) SavePostToES(post model.Post, id string, index string) error {}
-
-// func (backend *ElasticsearchBackend) SaveUserToES(user model.User, id string, index string) error {}
+func (backend *ElasticsearchBackend) DeleteFromES(index string, id string) (bool, error) {
+	resp, err := backend.client.Delete().
+		Index(index).
+		Id(id).
+		Do(context.Background())
+	if err != nil {
+		return false, err
+	}
+	return resp.Result == "deleted", nil
+}

@@ -4,11 +4,12 @@ import (
    "encoding/json"
    "fmt"
    "net/http"
-   "socialai/service"
+   "path/filepath"
    "socialai/model"
-    "path/filepath"
+   "socialai/service"
 
-    jwt "github.com/form3tech-oss/jwt-go"
+   jwt "github.com/form3tech-oss/jwt-go"
+   "github.com/gorilla/mux"
    "github.com/pborman/uuid"
 )
 
@@ -102,4 +103,27 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
    }
    w.Header().Set("Content-Type", "application/json")
    w.Write(js)
+}
+
+func deleteHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Received one delete request")
+	postID := mux.Vars(r)["id"]
+	if postID == "" {
+		http.Error(w, "Missing post id", http.StatusBadRequest)
+		return
+	}
+
+	deleted, err := service.DeletePost(postID)
+	if err != nil {
+		http.Error(w, "Failed to delete post from backend", http.StatusInternalServerError)
+		fmt.Printf("Failed to delete post from backend: %v\n", err)
+		return
+	}
+	if !deleted {
+		http.Error(w, "Post not found", http.StatusNotFound)
+		return
+	}
+
+    w.WriteHeader(http.StatusOK)
+    w.Write([]byte("Post is marked as deleted, cleanup in progress"))
 }

@@ -25,7 +25,7 @@ func InitRouter() http.Handler {
 
    router.Handle("/upload", middleware.Handler(http.HandlerFunc(uploadHandler))).Methods("POST")
    router.Handle("/search", middleware.Handler(http.HandlerFunc(searchHandler))).Methods("GET")
-
+   router.Handle("/post/{id}", middleware.Handler(http.HandlerFunc(deleteHandler))).Methods("DELETE")
    router.Handle("/signup", http.HandlerFunc(signupHandler)).Methods("POST")
    router.Handle("/signin", http.HandlerFunc(signinHandler)).Methods("POST")
 
