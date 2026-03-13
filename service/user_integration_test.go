@@ -5,24 +5,26 @@ import (
 	"os"
 	"testing"
 	"socialai/backend"
+	"socialai/constants"
 	"socialai/model"
 )
 
 func TestMain(m *testing.M) {
-	backend.InitElasticsearchBackend()
+	_, _ = backend.InitElasticsearchBackend()
 	os.Exit(m.Run())
 }
 
 func TestAddUser_Integration(t *testing.T) {
-	testUsername := "testuser_integration"
+	testUserId := "testuser_integration"
 	t.Cleanup(func() {
-		err := backend.ESBackend.DeleteFromES(testUsername, constants.USER_INDEX)
+		_, err := backend.ESBackend.DeleteFromES(constants.USER_INDEX, testUserId)
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
 		}
 	})
 	success, err := AddUser(&model.User{
-		Username: testUsername,
+		UserId:   testUserId,
+		Username: testUserId,
 		Password: "testpassword",
 	})
 

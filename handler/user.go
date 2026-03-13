@@ -17,6 +17,10 @@ import (
 func signupHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Received one signup request")
 	w.Header().Set("Content-Type", "application/json")
+	if r.Body == nil {
+		http.Error(w, "Request body is required", http.StatusBadRequest)
+		return
+	}
 
 	// process request: JSON -> model.User 
 	decoder := json.NewDecoder(r.Body)
@@ -27,14 +31,14 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// validation
-	if user.Username == "" || user.Password == "" || regexp.MustCompile(`^[a-z0-9]+$`).MatchString(user.Username) == false	 {
-		http.Error(w, "Invalid username or password", http.StatusBadRequest)
-		fmt.Printf("Invalid username or password\n")
+	if user.UserId == "" || user.Password == "" || regexp.MustCompile(`^[a-z0-9_]+$`).MatchString(user.UserId) == false {
+		http.Error(w, "Invalid user_id or password", http.StatusBadRequest)
+		fmt.Printf("Invalid user_id or password\n")
 		return
 	}
 
 	// Call service layer: AddUser
-	success, err := service.AddUser(&user)
+	err := service.AddANewUser(&user)
 	if err != nil {
 		http.Error(w, "Failed to add user to backend", http.StatusInternalServerError)
 		fmt.Printf("Failed to add user to backend: %v\n", err)
@@ -47,13 +51,17 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// response
-	fmt.Printf("User is added successfully! Username: %s\n", user.Username)
+	fmt.Printf("User is added successfully! UserId: %s\n", user.UserId)
 }
 
 var mySigninKey = []byte("secret223344")
 func signinHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Received one signin request")
 	w.Header().Set("Content-Type", "application/json")
+	if r.Body == nil {
+		http.Error(w, "Request body is required", http.StatusBadRequest)
+		return
+	}
 	
 	// process request: JSON -> model.User
 	decoder := json.NewDecoder(r.Body)
@@ -65,21 +73,21 @@ func signinHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Call service layer: CheckUser
-	success, err := service.CheckUser(user.Username, user.Password)
+	err := service.CheckUserAlreadyExisted(user.UserId, user.Password)
 	if err != nil {
 		http.Error(w, "Failed to check user in backend", http.StatusInternalServerError)
 		fmt.Printf("Failed to check user in backend: %v\n", err)
 		return
 	}
 	if !success {
-		http.Error(w, "Invalid username or password", http.StatusBadRequest)
-		fmt.Printf("Invalid username or password\n")
+		http.Error(w, "Invalid user_id or password", http.StatusBadRequest)
+		fmt.Printf("Invalid user_id or password\n")
 		return
 	}
 
 	// response + generate token (JWT)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"username": user.Username,
+		"user_id": user.UserId,
 		"exp": time.Now().Add(time.Hour * 24).Unix(),
 	})
 	tokenString, err := token.SignedString(mySigninKey)

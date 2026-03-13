@@ -7,6 +7,7 @@ import (
    "path/filepath"
    "socialai/model"
    "socialai/service"
+   "socialai/utils"
 
    jwt "github.com/form3tech-oss/jwt-go"
    "github.com/gorilla/mux"
@@ -33,14 +34,14 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 
     // 1. Process POST request: 
     // multipart request (JSON String) -> model.Post, Image/Video (Post struct).
-    // token -> username
+    // token -> user_id
     token := r.Context().Value("user")
     claims := token.(*jwt.Token).Claims
-    username := claims.(jwt.MapClaims)["username"]
+    userId := claims.(jwt.MapClaims)["user_id"]
 
     p := model.Post{
-        Id: uuid.New(),
-        User: username.(string),
+        PostId: uuid.New(),
+        UserId: userId.(string),
         Message: r.FormValue("message"),
     }
     file, header, err := r.FormFile("media_file")
@@ -76,7 +77,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 func searchHandler(w http.ResponseWriter, r *http.Request) {
    fmt.Println("Received one search request")
    // 1. process the request: URL params => user + keywords
-   user := r.URL.Query().Get("user")
+   user := r.URL.Query().Get("user_id")
    keywords := r.URL.Query().Get("keywords")
 
    // 2. call service layer to search posts in database. (business logic)
@@ -126,4 +127,32 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 
     w.WriteHeader(http.StatusOK)
     w.Write([]byte("Post is marked as deleted, cleanup in progress"))
+}
+
+func likeHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Received one like request")
+	postID := mux.Vars(r)["id"]
+	if postID == "" {
+		http.Error(w, "Missing post id", http.StatusBadRequest)
+		return
+	}
+
+    userId, err := utils.GetUserIdFromJwtToken(r)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusUnauthorized)
+        return
+    }
+    
+	liked, err := service.LikePost(postID, userId)
+	if err != nil {
+		http.Error(w, "Failed to like post from backend", http.StatusInternalServerError)
+		return
+	}
+	if !liked {
+		http.Error(w, "Post already liked", http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Post is liked"))
 }

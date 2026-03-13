@@ -9,41 +9,41 @@ import (
 	"github.com/olivere/elastic/v7"
 )
 
-func CheckUser(username, password string) (bool, error) {
-	// Logic: search user+password in ES, if exists, return true, otherwise return false.
+func CheckUserAlreadyExisted(userId, password string) error {
+	// Logic: search user_id+password in ES, if exists, return true, otherwise return false.
 	query := elastic.NewBoolQuery()
-	query.Must(elastic.NewTermQuery("username", username))
+	query.Must(elastic.NewTermQuery("user_id", userId))
 	query.Must(elastic.NewTermQuery("password", password))
 	searchResult, err := backend.ESBackend.ReadFromES(query, constants.USER_INDEX)
 	if err != nil {
-		return false, err
+		return fmt.Errorf("failed to read user from ES: %v", err)
 	}
 	if searchResult.TotalHits() > 0 {
-		fmt.Printf("Login as: %s\n", username)
-		return true, nil
+		fmt.Printf("Login as: %s\n", userId)
+		return nil
 	}
-	return false, nil
+	return ErrUserNotFound
 }
 
-func AddUser(user *model.User) (bool, error) {
-	// 1. logic, check username, then create
-	query := elastic.NewTermQuery("username", user.Username)
+func AddANewUser(user *model.User) error {
+	// 1. logic, check user id, then create
+	query := elastic.NewTermQuery("user_id", user.UserId)
 	searchResult, err := backend.ESBackend.ReadFromES(query, constants.USER_INDEX)
 	if err != nil {
-		return false, err
+		return fmt.Errorf("failed to read user from ES: %v", err)
 	}
 	if searchResult.TotalHits() > 0 {
-		return false, nil
+		return ErrUserAlreadyExisted
 	}
 	
 	// 2. ES save
-	err = backend.ESBackend.SaveToES(user, constants.USER_INDEX, user.Username)
+	err = backend.ESBackend.SaveToES(user, constants.USER_INDEX, user.UserId)
 	if err != nil {
-		return false, err
+		return fmt.Errorf("failed to save user to ES: %v", err)
 	}
 	
 	// 3. return
-	fmt.Printf("User is added successfully! Username: %s\n", user.Username)
-	return true, err
+	fmt.Printf("User is added successfully! UserId: %s\n", user.UserId)
+	return nil
 }
 
